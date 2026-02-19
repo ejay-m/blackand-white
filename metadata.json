@@ -1,5 +1,5 @@
 {
-  "name": "AI Math ",
+  "name": "Final Year AI Calculator",
   "description": "A smart calculator that combines traditional math operations with AI-powered problem solving and step-by-step explanations.",
   "requestFramePermissions": ["camera"]
 }

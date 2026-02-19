@@ -271,14 +271,38 @@ export default function App() {
   const t = THEMES[theme];
 
   return (
-    <div className={cn("min-h-screen flex items-center justify-center p-4 sm:p-8 relative transition-colors duration-500", t.bg)}>
-      <MathBackground theme={theme} />
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start z-10"
-      >
+    <div className={cn("min-h-screen flex flex-col relative transition-colors duration-500", t.bg)}>
+      {/* Professional Header */}
+      <header className="sticky top-0 z-50 w-full bg-[#f8f9fa] border-b border-zinc-200 shadow-sm px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="max-h-[40px] w-auto object-contain"
+            onError={(e) => {
+              // Fallback if logo.png is missing
+              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/calc/40/40';
+            }}
+          />
+          <h1 className="text-zinc-800 font-semibold text-lg tracking-tight">
+            VibeCode Project 2026
+          </h1>
+        </div>
+        <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-zinc-500 uppercase tracking-widest">
+          <span>Final Year Submission</span>
+          <div className="w-1 h-1 rounded-full bg-zinc-300" />
+          <span>AI Powered</span>
+        </div>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative">
+        <MathBackground theme={theme} />
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start z-10"
+        >
         
         {/* Main Calculator */}
         <div className="lg:col-span-7 space-y-6">
@@ -558,8 +582,9 @@ export default function App() {
           </motion.div>
         </div>
       </motion.div>
+    </div>
 
-      {/* Footer info */}
+    {/* Footer info */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-medium">
         Powered by Gemini 3 Flash
       </div>
