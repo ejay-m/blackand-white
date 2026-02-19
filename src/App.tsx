@@ -12,6 +12,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { geminiService } from './services/geminiService';
 import { CalculationHistory } from './types';
+import { audioService } from './utils/audio';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -58,6 +59,7 @@ export default function App() {
 
   const handleUndo = () => {
     if (undoStack.length === 0) return;
+    audioService.playClick();
     const previous = undoStack[undoStack.length - 1];
     setRedoStack(prev => [...prev, display]);
     setUndoStack(prev => prev.slice(0, -1));
@@ -66,6 +68,7 @@ export default function App() {
 
   const handleRedo = () => {
     if (redoStack.length === 0) return;
+    audioService.playClick();
     const next = redoStack[redoStack.length - 1];
     setUndoStack(prev => [...prev, display]);
     setRedoStack(prev => prev.slice(0, -1));
@@ -73,10 +76,12 @@ export default function App() {
   };
 
   const handleNumber = (num: string) => {
+    audioService.playClick();
     updateDisplay(prev => (prev === '0' ? num : prev + num));
   };
 
   const handleOperator = (op: string) => {
+    audioService.playClick();
     updateDisplay(prev => {
       const lastChar = prev.slice(-1);
       if (['+', '-', '*', '/'].includes(lastChar)) {
@@ -88,10 +93,12 @@ export default function App() {
   };
 
   const handleClear = () => {
+    audioService.playClick();
     updateDisplay('0');
   };
 
   const handleBackspace = () => {
+    audioService.playClick();
     updateDisplay(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
   };
 
@@ -100,6 +107,7 @@ export default function App() {
       const result = evaluate(display).toString();
       if (result === display) return;
       
+      audioService.playSuccess();
       const newEntry: CalculationHistory = {
         id: Date.now().toString(),
         expression: display,
@@ -109,6 +117,7 @@ export default function App() {
       setHistory(prev => [...prev, newEntry]);
       updateDisplay(result);
     } catch (error) {
+      audioService.playError();
       setDisplay('Error');
       setTimeout(() => setDisplay('0'), 1500);
     }
@@ -118,12 +127,14 @@ export default function App() {
     const query = prompt || aiPrompt || display;
     if (!query || query === '0') return;
 
+    audioService.playAiStart();
     setIsAiLoading(true);
     setShowAiInput(false);
     setAiPrompt('');
 
     try {
       const aiResponse = await geminiService.solveMathProblem(query);
+      audioService.playSuccess();
       const newEntry: CalculationHistory = {
         id: Date.now().toString(),
         expression: query,
@@ -136,6 +147,7 @@ export default function App() {
       updateDisplay(aiResponse.result);
       setSelectedCalculation(newEntry);
     } catch (error) {
+      audioService.playError();
       console.error(error);
       alert('AI failed to solve this. Try a simpler expression.');
     } finally {
@@ -144,6 +156,7 @@ export default function App() {
   };
 
   const handleExplain = async (calc: CalculationHistory) => {
+    audioService.playClick();
     if (calc.explanation) {
       setSelectedCalculation(calc);
       return;
@@ -240,7 +253,10 @@ export default function App() {
                     <Redo size={20} />
                   </button>
                   <button 
-                    onClick={() => setShowSettings(true)}
+                    onClick={() => {
+                      audioService.playClick();
+                      setShowSettings(true);
+                    }}
                     className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
                     title="Settings"
                   >
@@ -311,6 +327,7 @@ export default function App() {
               {history.length > 0 && !selectedCalculation && (
                 <button 
                   onClick={() => {
+                    audioService.playClick();
                     setHistory([]);
                     localStorage.removeItem('calc-history');
                   }}
@@ -448,6 +465,7 @@ export default function App() {
                 <div className="flex gap-4 pt-4">
                   <button 
                     onClick={() => { 
+                      audioService.playSuccess();
                       localStorage.setItem('gemini-api-key', apiKey); 
                       setShowSettings(false);
                       window.location.reload(); // Reload to re-init service
