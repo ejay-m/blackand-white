@@ -3,7 +3,7 @@ import {
   Plus, Minus, X, Divide, Delete, RotateCcw, 
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
-  Undo, Redo, Settings, Camera
+  Undo, Redo, Settings, Camera, Beaker
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluate } from 'mathjs';
@@ -70,6 +70,7 @@ export default function App() {
   const [showAiInput, setShowAiInput] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showScientific, setShowScientific] = useState(false);
   const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'light');
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
   const [isImageAnalyzing, setIsImageAnalyzing] = useState(false);
@@ -135,6 +136,11 @@ export default function App() {
         return prev + op;
       }
     });
+  };
+
+  const handleFunction = (fn: string) => {
+    audioService.playClick();
+    updateDisplay(prev => (prev === '0' ? `${fn}(` : `${prev}${fn}(`));
   };
 
   const handleClear = () => {
@@ -309,6 +315,26 @@ export default function App() {
 
             {/* Keypad */}
             <div className={cn("p-6 transition-colors duration-500", theme === 'dark' ? 'bg-zinc-900' : 'bg-white')}>
+              <AnimatePresence mode="wait">
+                {showScientific && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="grid grid-cols-4 gap-3 mb-4"
+                  >
+                    <CalcButton theme={theme} onClick={() => handleFunction('sin')} className="text-xs font-bold">sin</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleFunction('cos')} className="text-xs font-bold">cos</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleFunction('tan')} className="text-xs font-bold">tan</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleFunction('log10')} className="text-xs font-bold">log</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleFunction('ln')} className="text-xs font-bold">ln</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleFunction('sqrt')} className="text-xs font-bold">√</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleNumber('(')} className="text-xs font-bold">(</CalcButton>
+                    <CalcButton theme={theme} onClick={() => handleNumber(')')} className="text-xs font-bold">)</CalcButton>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="calculator-grid">
                 <CalcButton theme={theme} onClick={handleClear} className={t.opButton}>AC</CalcButton>
                 <CalcButton theme={theme} onClick={handleBackspace} className={t.opButton}><Delete size={20} /></CalcButton>
@@ -389,6 +415,13 @@ export default function App() {
                   title="History"
                 >
                   <HistoryIcon size={20} />
+                </button>
+                <button 
+                  onClick={() => setShowScientific(!showScientific)}
+                  className={cn("p-3 rounded-xl transition-colors", showScientific ? "bg-indigo-600 text-white" : t.opButton)}
+                  title="Scientific Mode"
+                >
+                  <Beaker size={20} />
                 </button>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
