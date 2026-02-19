@@ -12,6 +12,10 @@
   }
 }
 
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
 .calculator-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

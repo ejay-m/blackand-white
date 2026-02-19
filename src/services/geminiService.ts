@@ -53,6 +53,35 @@ export class GeminiService {
       throw new Error("Failed to generate explanation.");
     }
   }
+
+  async solveMathFromImage(base64Image: string, mimeType: string) {
+    try {
+      const ai = this.getAI();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-pro-preview",
+        contents: [
+          {
+            inlineData: {
+              data: base64Image,
+              mimeType: mimeType,
+            },
+          },
+          {
+            text: "Analyze the mathematical problem in this image. Solve it and provide a clear result and a step-by-step explanation.",
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: MATH_PROMPT_SCHEMA,
+        },
+      });
+
+      return JSON.parse(response.text);
+    } catch (error) {
+      console.error("Gemini Image Analysis Error:", error);
+      throw new Error("Failed to analyze the image. Please try again.");
+    }
+  }
 }
 
 export const geminiService = new GeminiService();

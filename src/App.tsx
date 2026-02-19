@@ -3,7 +3,7 @@ import {
   Plus, Minus, X, Divide, Delete, RotateCcw, 
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
-  Undo, Redo, Settings
+  Undo, Redo, Settings, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluate } from 'mathjs';
@@ -13,6 +13,48 @@ import { twMerge } from 'tailwind-merge';
 import { geminiService } from './services/geminiService';
 import { CalculationHistory } from './types';
 import { audioService } from './utils/audio';
+import { MathBackground } from './components/MathBackground';
+
+type Theme = 'light' | 'dark' | 'colorful';
+
+const THEMES = {
+  light: {
+    bg: 'bg-zinc-50',
+    panel: 'bg-white/80 border-zinc-200/50',
+    display: 'bg-zinc-900 text-white',
+    button: 'bg-white text-zinc-800 hover:bg-zinc-50 border-zinc-100',
+    opButton: 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200',
+    sidebar: 'bg-white/80 border-zinc-200/50',
+    text: 'text-zinc-900',
+    subtext: 'text-zinc-400',
+    historyItem: 'bg-white border-zinc-100 hover:border-indigo-200',
+    historyText: 'text-zinc-800'
+  },
+  dark: {
+    bg: 'bg-zinc-950',
+    panel: 'bg-zinc-900/80 border-zinc-800',
+    display: 'bg-black text-white',
+    button: 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border-zinc-700',
+    opButton: 'bg-zinc-700 text-zinc-100 hover:bg-zinc-600',
+    sidebar: 'bg-zinc-900/80 border-zinc-800',
+    text: 'text-zinc-100',
+    subtext: 'text-zinc-500',
+    historyItem: 'bg-zinc-800 border-zinc-700 hover:border-indigo-500',
+    historyText: 'text-zinc-100'
+  },
+  colorful: {
+    bg: 'bg-indigo-50',
+    panel: 'bg-white/90 border-indigo-100',
+    display: 'bg-indigo-900 text-white',
+    button: 'bg-white text-indigo-900 hover:bg-indigo-50 border-indigo-100',
+    opButton: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
+    sidebar: 'bg-white/90 border-indigo-100',
+    text: 'text-indigo-900',
+    subtext: 'text-indigo-400',
+    historyItem: 'bg-white border-indigo-50 hover:border-indigo-300',
+    historyText: 'text-indigo-900'
+  }
+};
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -28,7 +70,10 @@ export default function App() {
   const [showAiInput, setShowAiInput] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'light');
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
+  const [isImageAnalyzing, setIsImageAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCalculation, setSelectedCalculation] = useState<CalculationHistory | null>(null);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
@@ -177,69 +222,144 @@ export default function App() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    audioService.playAiStart();
+    setIsImageAnalyzing(true);
+    setIsAiLoading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = (reader.result as string).split(',')[1];
+        const mimeType = file.type;
+
+        try {
+          const aiResponse = await geminiService.solveMathFromImage(base64String, mimeType);
+          audioService.playSuccess();
+          const newEntry: CalculationHistory = {
+            id: Date.now().toString(),
+            expression: "[Image Analysis]",
+            result: aiResponse.result,
+            explanation: aiResponse.explanation,
+            timestamp: Date.now(),
+            isAiGenerated: true,
+          };
+          setHistory(prev => [...prev, newEntry]);
+          updateDisplay(aiResponse.result);
+          setSelectedCalculation(newEntry);
+        } catch (error) {
+          audioService.playError();
+          console.error(error);
+          alert('AI failed to analyze the image. Try a clearer photo.');
+        } finally {
+          setIsImageAnalyzing(false);
+          setIsAiLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      audioService.playError();
+      console.error(error);
+      setIsImageAnalyzing(false);
+      setIsAiLoading(false);
+    }
+  };
+
+  const t = THEMES[theme];
+
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className={cn("min-h-screen flex items-center justify-center p-4 sm:p-8 relative transition-colors duration-500", t.bg)}>
+      <MathBackground theme={theme} />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start z-10"
+      >
         
         {/* Main Calculator */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="glass-panel rounded-3xl overflow-hidden shadow-2xl border-zinc-200/50">
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            className={cn("rounded-3xl overflow-hidden shadow-2xl border transition-all duration-500", t.panel)}
+          >
             {/* Display */}
-            <div className="p-8 bg-zinc-900 text-white text-right space-y-2">
+            <div className={cn("p-8 text-right space-y-2 relative overflow-hidden transition-colors duration-500", t.display)}>
+              {/* Decorative background for display */}
+              <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
+                <div className="absolute top-2 left-2 text-[10px] font-mono">CALC_V1.0</div>
+                <div className="absolute bottom-2 left-2 text-[10px] font-mono">RAD</div>
+              </div>
+              
               <div className="text-zinc-400 text-sm font-mono h-6 overflow-hidden text-ellipsis">
                 {display !== '0' && display}
               </div>
-              <div className="text-5xl font-light tracking-tight truncate">
+              <motion.div 
+                key={display}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-5xl font-light tracking-tight truncate"
+              >
                 {display}
-              </div>
+              </motion.div>
             </div>
 
             {/* Keypad */}
-            <div className="p-6 bg-white">
+            <div className={cn("p-6 transition-colors duration-500", theme === 'dark' ? 'bg-zinc-900' : 'bg-white')}>
               <div className="calculator-grid">
-                <CalcButton onClick={handleClear} className="bg-zinc-100 text-zinc-600 hover:bg-zinc-200">AC</CalcButton>
-                <CalcButton onClick={handleBackspace} className="bg-zinc-100 text-zinc-600 hover:bg-zinc-200"><Delete size={20} /></CalcButton>
-                <CalcButton onClick={() => handleOperator('/')} className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"><Divide size={20} /></CalcButton>
-                <CalcButton onClick={() => handleOperator('*')} className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"><X size={20} /></CalcButton>
+                <CalcButton theme={theme} onClick={handleClear} className={t.opButton}>AC</CalcButton>
+                <CalcButton theme={theme} onClick={handleBackspace} className={t.opButton}><Delete size={20} /></CalcButton>
+                <CalcButton theme={theme} onClick={() => handleOperator('/')} className={t.opButton}><Divide size={20} /></CalcButton>
+                <CalcButton theme={theme} onClick={() => handleOperator('*')} className={t.opButton}><X size={20} /></CalcButton>
 
-                <CalcButton onClick={() => handleNumber('7')}>7</CalcButton>
-                <CalcButton onClick={() => handleNumber('8')}>8</CalcButton>
-                <CalcButton onClick={() => handleNumber('9')}>9</CalcButton>
-                <CalcButton onClick={() => handleOperator('-')} className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"><Minus size={20} /></CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('7')}>7</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('8')}>8</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('9')}>9</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleOperator('-')} className={t.opButton}><Minus size={20} /></CalcButton>
 
-                <CalcButton onClick={() => handleNumber('4')}>4</CalcButton>
-                <CalcButton onClick={() => handleNumber('5')}>5</CalcButton>
-                <CalcButton onClick={() => handleNumber('6')}>6</CalcButton>
-                <CalcButton onClick={() => handleOperator('+')} className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"><Plus size={20} /></CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('4')}>4</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('5')}>5</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('6')}>6</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleOperator('+')} className={t.opButton}><Plus size={20} /></CalcButton>
 
-                <CalcButton onClick={() => handleNumber('1')}>1</CalcButton>
-                <CalcButton onClick={() => handleNumber('2')}>2</CalcButton>
-                <CalcButton onClick={() => handleNumber('3')}>3</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('1')}>1</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('2')}>2</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('3')}>3</CalcButton>
                 <CalcButton 
+                  theme={theme}
                   onClick={handleCalculate} 
-                  className="row-span-2 bg-zinc-900 text-white hover:bg-zinc-800"
+                  className={cn("row-span-2 text-white hover:opacity-90", theme === 'colorful' ? 'bg-indigo-600' : 'bg-zinc-900')}
                 >
                   =
                 </CalcButton>
 
-                <CalcButton onClick={() => handleNumber('0')} className="col-span-2">0</CalcButton>
-                <CalcButton onClick={() => handleNumber('.')}>.</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('0')} className="col-span-2">0</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleNumber('.')}>.</CalcButton>
               </div>
 
               {/* AI Actions */}
-              <div className="mt-6 pt-6 border-t border-zinc-100 flex gap-3">
-                <button 
+              <div className={cn("mt-6 pt-6 border-t flex gap-3", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100')}>
+                <motion.button 
+                  whileHover={{ scale: 1.02, boxShadow: '0 0 15px rgba(79, 70, 229, 0.2)' }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowAiInput(!showAiInput)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-50 text-indigo-600 font-medium hover:bg-indigo-100 transition-colors"
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-colors relative overflow-hidden group",
+                    theme === 'dark' ? 'bg-indigo-900/30 text-indigo-300 hover:bg-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                  )}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
                   <Sparkles size={18} />
                   <span>AI Solve</span>
-                </button>
+                </motion.button>
                 <div className="flex gap-2">
                   <button 
                     onClick={handleUndo}
                     disabled={undoStack.length === 0}
-                    className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors disabled:opacity-30"
+                    className={cn("p-3 rounded-xl transition-colors disabled:opacity-30", t.opButton)}
                     title="Undo"
                   >
                     <Undo size={20} />
@@ -247,7 +367,7 @@ export default function App() {
                   <button 
                     onClick={handleRedo}
                     disabled={redoStack.length === 0}
-                    className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors disabled:opacity-30"
+                    className={cn("p-3 rounded-xl transition-colors disabled:opacity-30", t.opButton)}
                     title="Redo"
                   >
                     <Redo size={20} />
@@ -257,7 +377,7 @@ export default function App() {
                       audioService.playClick();
                       setShowSettings(true);
                     }}
-                    className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+                    className={cn("p-3 rounded-xl transition-colors", t.opButton)}
                     title="Settings"
                   >
                     <Settings size={20} />
@@ -265,11 +385,26 @@ export default function App() {
                 </div>
                 <button 
                   onClick={() => setShowHistory(!showHistory)}
-                  className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+                  className={cn("p-3 rounded-xl transition-colors", t.opButton)}
                   title="History"
                 >
                   <HistoryIcon size={20} />
                 </button>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn("p-3 rounded-xl transition-colors", t.opButton)}
+                  title="Analyze Image"
+                  disabled={isImageAnalyzing}
+                >
+                  {isImageAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageUpload} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
               </div>
 
               {/* AI Input Field */}
@@ -302,24 +437,26 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Sidebar: History & Explanations */}
         <div className="lg:col-span-5 space-y-6 h-full">
-          <div className="glass-panel rounded-3xl p-6 h-[600px] flex flex-col">
+          <motion.div 
+            className={cn("rounded-3xl p-6 h-[600px] flex flex-col shadow-2xl border transition-all duration-500", t.sidebar)}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
+              <h2 className={cn("text-xl font-semibold flex items-center gap-2 transition-colors duration-500", t.text)}>
                 {selectedCalculation ? (
                   <>
-                    <button onClick={() => setSelectedCalculation(null)} className="p-1 hover:bg-zinc-100 rounded-lg">
+                    <button onClick={() => setSelectedCalculation(null)} className={cn("p-1 rounded-lg transition-colors", theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}>
                       <ChevronRight className="rotate-180" size={20} />
                     </button>
                     Explanation
                   </>
                 ) : (
                   <>
-                    <HistoryIcon size={20} className="text-zinc-400" />
+                    <HistoryIcon size={20} className={t.subtext} />
                     History
                   </>
                 )}
@@ -331,7 +468,7 @@ export default function App() {
                     setHistory([]);
                     localStorage.removeItem('calc-history');
                   }}
-                  className="text-xs text-zinc-400 hover:text-red-500 flex items-center gap-1"
+                  className={cn("text-xs flex items-center gap-1 transition-colors", theme === 'dark' ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500')}
                 >
                   <RotateCcw size={12} />
                   Clear
@@ -344,26 +481,27 @@ export default function App() {
                 {selectedCalculation ? (
                   <motion.div 
                     key="explanation"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, rotateY: 90, perspective: 1000 }}
+                    animate={{ opacity: 1, rotateY: 0 }}
+                    exit={{ opacity: 0, rotateY: -90 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
                     className="space-y-4"
                   >
-                    <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                      <div className="text-xs text-zinc-400 mb-1">Problem</div>
-                      <div className="font-medium text-zinc-900">{selectedCalculation.expression}</div>
+                    <div className={cn("p-4 rounded-2xl border transition-colors duration-500", theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-100')}>
+                      <div className={cn("text-xs mb-1", t.subtext)}>Problem</div>
+                      <div className={cn("font-medium", t.text)}>{selectedCalculation.expression}</div>
                       <div className="text-2xl font-light text-indigo-600 mt-2">= {selectedCalculation.result}</div>
                     </div>
                     
-                    <div className="prose prose-zinc prose-sm max-w-none">
-                      <div className="text-xs text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Steps & Explanation</div>
+                    <div className={cn("prose prose-sm max-w-none", theme === 'dark' ? 'prose-invert' : 'prose-zinc')}>
+                      <div className={cn("text-xs mb-2 uppercase tracking-wider font-semibold", t.subtext)}>Steps & Explanation</div>
                       {isAiLoading ? (
-                        <div className="flex items-center gap-2 text-zinc-400 py-8 justify-center">
+                        <div className={cn("flex items-center gap-2 py-8 justify-center", t.subtext)}>
                           <Loader2 className="animate-spin" size={18} />
                           <span>Gemini is thinking...</span>
                         </div>
                       ) : (
-                        <div className="text-zinc-600 leading-relaxed">
+                        <div className={cn("leading-relaxed", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}>
                           <ReactMarkdown>{selectedCalculation.explanation || ''}</ReactMarkdown>
                         </div>
                       )}
@@ -372,13 +510,15 @@ export default function App() {
                 ) : (
                   <motion.div 
                     key="history"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, rotateY: -90, perspective: 1000 }}
+                    animate={{ opacity: 1, rotateY: 0 }}
+                    exit={{ opacity: 0, rotateY: 90 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
                     className="space-y-3"
                   >
                     {history.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-2 py-20">
-                        <div className="p-4 bg-zinc-100 rounded-full">
+                      <div className={cn("h-full flex flex-col items-center justify-center space-y-2 py-20", t.subtext)}>
+                        <div className={cn("p-4 rounded-full", theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100')}>
                           <HistoryIcon size={32} />
                         </div>
                         <p className="text-sm">No calculations yet</p>
@@ -387,11 +527,11 @@ export default function App() {
                       history.slice().reverse().map((item) => (
                         <div 
                           key={item.id}
-                          className="group p-4 rounded-2xl bg-white border border-zinc-100 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer"
+                          className={cn("group p-4 rounded-2xl border transition-all cursor-pointer", t.historyItem)}
                           onClick={() => handleExplain(item)}
                         >
                           <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs text-zinc-400 font-mono truncate max-w-[150px]">
+                            <span className={cn("text-xs font-mono truncate max-w-[150px]", t.subtext)}>
                               {item.expression}
                             </span>
                             <span className="text-[10px] text-zinc-300">
@@ -399,7 +539,7 @@ export default function App() {
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <div className="text-lg font-medium text-zinc-800">
+                            <div className={cn("text-lg font-medium", t.historyText)}>
                               {item.result}
                             </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -415,9 +555,9 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Footer info */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-medium">
@@ -449,7 +589,33 @@ export default function App() {
                 To enable AI features on Vercel, please enter your Gemini API Key. 
                 It is stored safely in your browser's local storage.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">
+                    UI Theme
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['light', 'dark', 'colorful'] as const).map((tName) => (
+                      <button
+                        key={tName}
+                        onClick={() => {
+                          audioService.playClick();
+                          setTheme(tName);
+                          localStorage.setItem('calc-theme', tName);
+                        }}
+                        className={cn(
+                          "py-2 px-3 rounded-xl text-xs font-bold capitalize border transition-all",
+                          theme === tName 
+                            ? "bg-zinc-900 text-white border-zinc-900" 
+                            : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                        )}
+                      >
+                        {tName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2 block">
                     Gemini API Key
@@ -492,23 +658,27 @@ export default function App() {
   );
 }
 
-function CalcButton({ children, onClick, className, disabled }: { 
+function CalcButton({ children, onClick, className, disabled, theme }: { 
   children: React.ReactNode, 
   onClick?: () => void, 
   className?: string,
-  disabled?: boolean
+  disabled?: boolean,
+  theme: Theme
 }) {
+  const t = THEMES[theme];
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "h-14 sm:h-16 flex items-center justify-center rounded-2xl text-xl font-medium transition-all active:scale-95 disabled:opacity-50",
-        "bg-white text-zinc-800 hover:bg-zinc-50 border border-zinc-100 shadow-sm",
+        "h-14 sm:h-16 flex items-center justify-center rounded-2xl text-xl font-medium transition-all disabled:opacity-50 border shadow-sm",
+        t.button,
         className
       )}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
