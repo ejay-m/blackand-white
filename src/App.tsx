@@ -3,7 +3,7 @@ import {
   Plus, Minus, X, Divide, Delete, RotateCcw, 
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
-  Undo, Redo
+  Undo, Redo, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluate } from 'mathjs';
@@ -26,6 +26,8 @@ export default function App() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [showAiInput, setShowAiInput] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
   const [selectedCalculation, setSelectedCalculation] = useState<CalculationHistory | null>(null);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
@@ -237,6 +239,13 @@ export default function App() {
                   >
                     <Redo size={20} />
                   </button>
+                  <button 
+                    onClick={() => setShowSettings(true)}
+                    className="p-3 rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+                    title="Settings"
+                  >
+                    <Settings size={20} />
+                  </button>
                 </div>
                 <button 
                   onClick={() => setShowHistory(!showHistory)}
@@ -397,6 +406,70 @@ export default function App() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-medium">
         Powered by Gemini 3 Flash
       </div>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-3xl font-bold">Settings</h3>
+                <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-zinc-100 rounded-full">
+                  <CloseIcon size={24} />
+                </button>
+              </div>
+              <p className="text-zinc-500 mb-8 leading-relaxed">
+                To enable AI features on Vercel, please enter your Gemini API Key. 
+                It is stored safely in your browser's local storage.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2 block">
+                    Gemini API Key
+                  </label>
+                  <input 
+                    type="password" 
+                    value={apiKey} 
+                    onChange={e => setApiKey(e.target.value)} 
+                    placeholder="Paste your key here..." 
+                    className="w-full border border-zinc-200 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all" 
+                  />
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button 
+                    onClick={() => { 
+                      localStorage.setItem('gemini-api-key', apiKey); 
+                      setShowSettings(false);
+                      window.location.reload(); // Reload to re-init service
+                    }} 
+                    className="flex-1 bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+                <a 
+                  href="https://aistudio.google.com/app/apikey" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="block text-center text-xs text-indigo-600 hover:underline pt-2"
+                >
+                  Get a free key from Google AI Studio
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
