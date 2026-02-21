@@ -20,7 +20,7 @@ export class GeminiService {
     try {
       const ai = this.getAI();
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: `Solve this math problem: ${problem}. Provide a clear result and a step-by-step explanation.`,
         config: {
           responseMimeType: "application/json",
@@ -39,7 +39,7 @@ export class GeminiService {
     try {
       const ai = this.getAI();
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: `Explain how to calculate ${expression} which equals ${result}. Break it down into simple steps.`,
         config: {
           responseMimeType: "application/json",

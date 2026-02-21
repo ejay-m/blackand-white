@@ -4,11 +4,13 @@ import {
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
   Undo, Redo, Settings, Camera, ArrowRightLeft,
-  Folder, Calculator, Cpu, Layout, Moon, Sun, Palette
+  Folder, Calculator, Cpu, Layout, Moon, Sun, Palette,
+  User as UserIcon, Mail, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluate, format } from 'mathjs';
 import ReactMarkdown from 'react-markdown';
+import { toast, Toaster } from 'sonner';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { geminiService } from './services/geminiService';
@@ -18,6 +20,11 @@ import { MathBackground } from './components/MathBackground';
 import { UnitConverter } from './components/UnitConverter';
 
 type Theme = 'light' | 'dark' | 'colorful' | 'e2';
+
+type User = {
+  name: string;
+  email: string;
+};
 
 const THEMES = {
   e2: {
@@ -85,12 +92,37 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showUnitConverter, setShowUnitConverter] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'e2');
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
   const [isImageAnalyzing, setIsImageAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCalculation, setSelectedCalculation] = useState<CalculationHistory | null>(null);
   const historyEndRef = useRef<HTMLDivElement>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('calc-user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [loginForm, setLoginForm] = useState({ name: '', email: '' });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginForm.name || !loginForm.email) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    const newUser = { ...loginForm };
+    setUser(newUser);
+    localStorage.setItem('calc-user', JSON.stringify(newUser));
+    audioService.playSuccess();
+    toast.success(`Welcome, ${newUser.name}!`);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('calc-user');
+    audioService.playAction();
+  };
 
   const handleSaveSettings = () => {
     audioService.playSuccess();
@@ -225,7 +257,9 @@ export default function App() {
     } catch (error) {
       audioService.playError();
       console.error(error);
-      alert('AI failed to solve this. Try a simpler expression.');
+      toast.error("AI Error", {
+        description: "Failed to solve this. Try a simpler expression.",
+      });
     } finally {
       setIsAiLoading(false);
     }
@@ -247,7 +281,9 @@ export default function App() {
       setHistory(updatedHistory);
       setSelectedCalculation({ ...calc, explanation: aiResponse.explanation });
     } catch (error) {
-      alert('Failed to get explanation');
+      toast.error("Explanation failed", {
+        description: "Could not generate a step-by-step breakdown.",
+      });
     } finally {
       setIsAiLoading(false);
     }
@@ -270,6 +306,9 @@ export default function App() {
         try {
           const aiResponse = await geminiService.solveMathFromImage(base64String, mimeType);
           audioService.playSuccess();
+          toast.success("Analysis complete!", {
+            description: "The problem has been solved and explained.",
+          });
           const newEntry: CalculationHistory = {
             id: Date.now().toString(),
             expression: "[Image Analysis]",
@@ -284,7 +323,9 @@ export default function App() {
         } catch (error) {
           audioService.playError();
           console.error(error);
-          alert('AI failed to analyze the image. Try a clearer photo.');
+          toast.error("Analysis failed", {
+            description: "Gemini couldn't read the image. Please try a clearer photo.",
+          });
         } finally {
           setIsImageAnalyzing(false);
           setIsAiLoading(false);
@@ -301,8 +342,113 @@ export default function App() {
 
   const t = THEMES[theme];
 
+  if (!user) {
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center p-4 relative overflow-hidden", theme === 'e2' ? "bg-[#050510]" : "bg-zinc-50")}>
+        <Toaster position="top-center" richColors />
+        <MathBackground theme={theme} />
+        
+        {/* E2 Glows */}
+        {theme === 'e2' && (
+          <>
+            <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
+          </>
+        )}
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={cn("w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl border z-10 relative backdrop-blur-xl", theme === 'e2' ? "bg-[#0f0f1a]/80 border-[#1e1e30]" : "bg-white border-zinc-200")}
+        >
+          <div className="flex flex-col items-center text-center mb-10">
+            <motion.div 
+              initial={{ rotate: -10 }}
+              animate={{ rotate: 0 }}
+              className="w-20 h-20 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-2xl shadow-indigo-500/40 mb-6"
+            >
+              <Cpu className="text-white" size={40} />
+            </motion.div>
+            <h1 className={cn("text-3xl font-black tracking-tight mb-2", theme === 'e2' ? "text-white" : "text-zinc-900")}>
+              E2 AI <span className="text-indigo-500">Calculator</span>
+            </h1>
+            <p className={cn("text-sm font-medium uppercase tracking-widest", theme === 'e2' ? "text-zinc-500" : "text-zinc-400")}>
+              The Future of Mathematics
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <label className={cn("text-xs font-bold uppercase tracking-widest block ml-2", theme === 'e2' ? "text-zinc-500" : "text-zinc-400")}>
+                Full Name
+              </label>
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                <input 
+                  type="text" 
+                  required
+                  value={loginForm.name}
+                  onChange={e => setLoginForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter your name"
+                  className={cn(
+                    "w-full pl-12 pr-6 py-4 rounded-2xl border outline-none transition-all font-medium",
+                    theme === 'e2' ? "bg-[#1a1a2e] border-[#2a2a4a] text-white focus:ring-2 focus:ring-indigo-500/20" : "bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-indigo-500/20"
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className={cn("text-xs font-bold uppercase tracking-widest block ml-2", theme === 'e2' ? "text-zinc-500" : "text-zinc-400")}>
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                <input 
+                  type="email" 
+                  required
+                  value={loginForm.email}
+                  onChange={e => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="name@example.com"
+                  className={cn(
+                    "w-full pl-12 pr-6 py-4 rounded-2xl border outline-none transition-all font-medium",
+                    theme === 'e2' ? "bg-[#1a1a2e] border-[#2a2a4a] text-white focus:ring-2 focus:ring-indigo-500/20" : "bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-indigo-500/20"
+                  )}
+                />
+              </div>
+            </div>
+
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold tracking-widest uppercase shadow-xl shadow-indigo-500/30 flex items-center justify-center gap-3 hover:bg-indigo-700 transition-colors"
+            >
+              Get Started
+              <ArrowRight size={20} />
+            </motion.button>
+          </form>
+
+          <div className="mt-10 pt-8 border-t border-zinc-800/10 text-center">
+            <p className={cn("text-xs font-medium", theme === 'e2' ? "text-zinc-600" : "text-zinc-400")}>
+              Gateway is open
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("min-h-screen flex items-center justify-center p-4 sm:p-8 relative transition-colors duration-500 overflow-hidden", t.bg)}>
+      <Toaster position="top-center" richColors />
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleImageUpload} 
+        accept="image/*" 
+        className="hidden" 
+      />
       <MathBackground theme={theme} />
       
       {/* E2 Glows */}
@@ -326,13 +472,59 @@ export default function App() {
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative overflow-hidden">
-                  <Calculator className="text-white/40 absolute -bottom-1 -right-1" size={24} />
-                  <Cpu className="text-white relative z-10" size={20} />
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowProfile(!showProfile)}
+                    className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-500/20 border-2 border-white/10"
+                  >
+                    {user.name.charAt(0).toUpperCase()}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {showProfile && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className={cn(
+                          "absolute top-14 left-0 w-64 p-5 rounded-2xl shadow-2xl border z-50 backdrop-blur-xl",
+                          theme === 'e2' ? "bg-[#161625]/95 border-[#25253a]" : "bg-white border-zinc-200"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="overflow-hidden">
+                            <p className={cn("font-bold truncate", t.text)}>{user.name}</p>
+                            <p className="text-[10px] text-zinc-500 truncate">{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className={cn("p-3 rounded-xl text-[10px] font-medium uppercase tracking-wider", theme === 'e2' ? "bg-white/5 text-zinc-400" : "bg-zinc-50 text-zinc-500")}>
+                            Account Status: <span className="text-emerald-500">Active</span>
+                          </div>
+                          <button 
+                            onClick={handleLogout}
+                            className="w-full py-2 rounded-xl bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <X size={14} />
+                            Sign Out
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+
                 <div>
                   <h1 className={cn("text-xl font-bold tracking-tight", t.text)}>E2 AI <span className="text-indigo-500">Calculator</span></h1>
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    Welcome back, {user.name.split(' ')[0]} • <span className="text-indigo-400">Click avatar for profile</span>
+                  </p>
                 </div>
               </div>
               
@@ -340,6 +532,9 @@ export default function App() {
                 <button className={cn("px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all", t.button)}>
                   <Layout size={14} />
                   Scientific
+                </button>
+                <button onClick={handleLogout} className={cn("p-2 rounded-xl transition-all text-red-500 hover:bg-red-500/10", t.button)} title="Logout">
+                  <X size={18} />
                 </button>
                 <button onClick={handleUndo} disabled={undoStack.length === 0} className={cn("p-2 rounded-xl transition-all disabled:opacity-30", t.button)}>
                   <Undo size={18} />
@@ -456,26 +651,80 @@ export default function App() {
             </div>
 
             {/* AI Solve Button */}
-            <motion.button 
-              whileHover={{ scale: 1.01, boxShadow: '0 0 30px rgba(79, 70, 229, 0.3)' }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 py-5 rounded-3xl flex items-center justify-center gap-4 text-white font-bold tracking-widest uppercase shadow-xl"
-            >
-              <div className="flex items-center gap-2">
-                <Cpu size={24} />
-                <div className="w-px h-6 bg-white/20" />
-                <Sparkles size={20} />
-              </div>
-              <span>AI Solve & Analyze</span>
-            </motion.button>
+            <div className="flex flex-col gap-3">
+              <motion.button 
+                whileHover={{ scale: 1.01, boxShadow: '0 0 30px rgba(79, 70, 229, 0.3)' }}
+                whileTap={{ scale: 0.99 }}
+                animate={isAiLoading && !isImageAnalyzing ? { 
+                  opacity: [1, 0.7, 1],
+                  transition: { duration: 1.5, repeat: Infinity }
+                } : {}}
+                onClick={() => handleAiSolve()}
+                disabled={isAiLoading}
+                className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 py-5 rounded-3xl flex items-center justify-center gap-4 text-white font-bold tracking-widest uppercase shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2">
+                  {isAiLoading && !isImageAnalyzing ? (
+                    <Loader2 className="animate-spin" size={24} />
+                  ) : (
+                    <Cpu size={24} />
+                  )}
+                  <div className="w-px h-6 bg-white/20" />
+                  <Sparkles size={20} className={isAiLoading && !isImageAnalyzing ? "animate-pulse" : ""} />
+                </div>
+                <span>{isAiLoading && !isImageAnalyzing ? "Solving..." : "AI Solve & Analyze"}</span>
+              </motion.button>
+
+              <motion.button 
+                whileHover={{ scale: 1.01, boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)' }}
+                whileTap={{ scale: 0.99 }}
+                animate={isImageAnalyzing ? { 
+                  opacity: [1, 0.8, 1],
+                  transition: { duration: 1.5, repeat: Infinity }
+                } : {}}
+                onClick={() => {
+                  toast.info("Opening file selector...", {
+                    description: "Please select an image of a math problem from your device.",
+                    duration: 3000,
+                  });
+                  fileInputRef.current?.click();
+                }}
+                disabled={isAiLoading}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 py-4 rounded-3xl flex items-center justify-center gap-4 text-white font-bold tracking-widest uppercase shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2">
+                  {isImageAnalyzing ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    <Camera size={20} />
+                  )}
+                </div>
+                <span>{isImageAnalyzing ? "Analyzing..." : "Analyzing Image"}</span>
+              </motion.button>
+
+              <motion.button 
+                whileHover={{ scale: 1.01, boxShadow: '0 0 30px rgba(79, 70, 229, 0.2)' }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => {
+                  audioService.playClick();
+                  setShowUnitConverter(true);
+                }}
+                className={cn(
+                  "w-full py-4 rounded-3xl flex items-center justify-center gap-4 font-bold tracking-widest uppercase shadow-lg transition-all",
+                  theme === 'e2' ? "bg-[#1e1e30] text-indigo-400 border border-[#2a2a40]" : "bg-white text-indigo-600 border border-zinc-100"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft size={20} />
+                </div>
+                <span>Unit Converter</span>
+              </motion.button>
+            </div>
 
             {/* Floating Toolbar */}
             <div className="mt-8 flex justify-center">
               <div className={cn("flex items-center gap-1 p-2 rounded-2xl border shadow-xl", t.panel)}>
                 <button onClick={() => setShowSettings(true)} className={cn("p-3 rounded-xl transition-all", t.button)}><Settings size={20} /></button>
-                <button onClick={() => fileInputRef.current?.click()} className={cn("p-3 rounded-xl transition-all", t.button)}><Camera size={20} /></button>
-                <button onClick={() => setShowHistory(!showHistory)} className={cn("p-3 rounded-xl transition-all", showHistory ? "bg-indigo-600 text-white" : t.button)}><Folder size={20} /></button>
                 <div className="w-px h-6 bg-zinc-800 mx-2" />
                 <button 
                   onClick={() => {
@@ -531,19 +780,21 @@ export default function App() {
                       </>
                     )}
                   </h2>
-                  {history.length > 0 && !selectedCalculation && (
-                    <button 
-                      onClick={() => {
-                        audioService.playClick();
-                        setHistory([]);
-                        localStorage.removeItem('calc-history');
-                      }}
-                      className={cn("text-xs flex items-center gap-1 transition-colors", theme === 'dark' ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500')}
-                    >
-                      <RotateCcw size={12} />
-                      Clear
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {history.length > 0 && !selectedCalculation && (
+                      <button 
+                        onClick={() => {
+                          audioService.playClick();
+                          setHistory([]);
+                          localStorage.removeItem('calc-history');
+                        }}
+                        className={cn("text-xs flex items-center gap-1 transition-colors mr-2", theme === 'dark' ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500')}
+                      >
+                        <RotateCcw size={12} />
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
