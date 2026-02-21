@@ -3,7 +3,7 @@ import {
   Plus, Minus, X, Divide, Delete, RotateCcw, 
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
-  Undo, Redo, Settings, Camera
+  Undo, Redo, Settings, Camera, ArrowRightLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluate } from 'mathjs';
@@ -14,6 +14,7 @@ import { geminiService } from './services/geminiService';
 import { CalculationHistory } from './types';
 import { audioService } from './utils/audio';
 import { MathBackground } from './components/MathBackground';
+import { UnitConverter } from './components/UnitConverter';
 
 type Theme = 'light' | 'dark' | 'colorful';
 
@@ -70,6 +71,7 @@ export default function App() {
   const [showAiInput, setShowAiInput] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showUnitConverter, setShowUnitConverter] = useState(false);
   const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'light');
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
   const [isImageAnalyzing, setIsImageAnalyzing] = useState(false);
@@ -104,7 +106,7 @@ export default function App() {
 
   const handleUndo = () => {
     if (undoStack.length === 0) return;
-    audioService.playClick();
+    audioService.playAction();
     const previous = undoStack[undoStack.length - 1];
     setRedoStack(prev => [...prev, display]);
     setUndoStack(prev => prev.slice(0, -1));
@@ -113,7 +115,7 @@ export default function App() {
 
   const handleRedo = () => {
     if (redoStack.length === 0) return;
-    audioService.playClick();
+    audioService.playAction();
     const next = redoStack[redoStack.length - 1];
     setUndoStack(prev => [...prev, display]);
     setRedoStack(prev => prev.slice(0, -1));
@@ -121,12 +123,12 @@ export default function App() {
   };
 
   const handleNumber = (num: string) => {
-    audioService.playClick();
+    audioService.playNumber();
     updateDisplay(prev => (prev === '0' ? num : prev + num));
   };
 
   const handleOperator = (op: string) => {
-    audioService.playClick();
+    audioService.playOperator();
     updateDisplay(prev => {
       const lastChar = prev.slice(-1);
       if (['+', '-', '*', '/'].includes(lastChar)) {
@@ -138,19 +140,22 @@ export default function App() {
   };
 
   const handleClear = () => {
-    audioService.playClick();
+    audioService.playClear();
     updateDisplay('0');
   };
 
   const handleBackspace = () => {
-    audioService.playClick();
+    audioService.playAction();
     updateDisplay(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
   };
 
   const handleCalculate = () => {
     try {
       const result = evaluate(display).toString();
-      if (result === display) return;
+      if (result === display) {
+        audioService.playEquals();
+        return;
+      }
       
       audioService.playSuccess();
       const newEntry: CalculationHistory = {
@@ -201,7 +206,7 @@ export default function App() {
   };
 
   const handleExplain = async (calc: CalculationHistory) => {
-    audioService.playClick();
+    audioService.playAction();
     if (calc.explanation) {
       setSelectedCalculation(calc);
       return;
@@ -374,7 +379,17 @@ export default function App() {
                   </button>
                   <button 
                     onClick={() => {
-                      audioService.playClick();
+                      audioService.playAction();
+                      setShowUnitConverter(!showUnitConverter);
+                    }}
+                    className={cn("p-3 rounded-xl transition-colors", showUnitConverter ? "bg-indigo-600 text-white" : t.opButton)}
+                    title="Unit Converter"
+                  >
+                    <ArrowRightLeft size={20} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      audioService.playAction();
                       setShowSettings(true);
                     }}
                     className={cn("p-3 rounded-xl transition-colors", t.opButton)}
@@ -440,122 +455,141 @@ export default function App() {
           </motion.div>
         </div>
 
-        {/* Sidebar: History & Explanations */}
+        {/* Sidebar: History & Explanations / Unit Converter */}
         <div className="lg:col-span-5 space-y-6 h-full">
-          <motion.div 
-            className={cn("rounded-3xl p-6 h-[600px] flex flex-col shadow-2xl border transition-all duration-500", t.sidebar)}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className={cn("text-xl font-semibold flex items-center gap-2 transition-colors duration-500", t.text)}>
-                {selectedCalculation ? (
-                  <>
-                    <button onClick={() => setSelectedCalculation(null)} className={cn("p-1 rounded-lg transition-colors", theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}>
-                      <ChevronRight className="rotate-180" size={20} />
-                    </button>
-                    Explanation
-                  </>
-                ) : (
-                  <>
-                    <HistoryIcon size={20} className={t.subtext} />
-                    History
-                  </>
-                )}
-              </h2>
-              {history.length > 0 && !selectedCalculation && (
-                <button 
-                  onClick={() => {
-                    audioService.playClick();
-                    setHistory([]);
-                    localStorage.removeItem('calc-history');
-                  }}
-                  className={cn("text-xs flex items-center gap-1 transition-colors", theme === 'dark' ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500')}
-                >
-                  <RotateCcw size={12} />
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-              <AnimatePresence mode="wait">
-                {selectedCalculation ? (
-                  <motion.div 
-                    key="explanation"
-                    initial={{ opacity: 0, rotateY: 90, perspective: 1000 }}
-                    animate={{ opacity: 1, rotateY: 0 }}
-                    exit={{ opacity: 0, rotateY: -90 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                    className="space-y-4"
-                  >
-                    <div className={cn("p-4 rounded-2xl border transition-colors duration-500", theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-100')}>
-                      <div className={cn("text-xs mb-1", t.subtext)}>Problem</div>
-                      <div className={cn("font-medium", t.text)}>{selectedCalculation.expression}</div>
-                      <div className="text-2xl font-light text-indigo-600 mt-2">= {selectedCalculation.result}</div>
-                    </div>
-                    
-                    <div className={cn("prose prose-sm max-w-none", theme === 'dark' ? 'prose-invert' : 'prose-zinc')}>
-                      <div className={cn("text-xs mb-2 uppercase tracking-wider font-semibold", t.subtext)}>Steps & Explanation</div>
-                      {isAiLoading ? (
-                        <div className={cn("flex items-center gap-2 py-8 justify-center", t.subtext)}>
-                          <Loader2 className="animate-spin" size={18} />
-                          <span>Gemini is thinking...</span>
-                        </div>
-                      ) : (
-                        <div className={cn("leading-relaxed", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}>
-                          <ReactMarkdown>{selectedCalculation.explanation || ''}</ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div 
-                    key="history"
-                    initial={{ opacity: 0, rotateY: -90, perspective: 1000 }}
-                    animate={{ opacity: 1, rotateY: 0 }}
-                    exit={{ opacity: 0, rotateY: 90 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                    className="space-y-3"
-                  >
-                    {history.length === 0 ? (
-                      <div className={cn("h-full flex flex-col items-center justify-center space-y-2 py-20", t.subtext)}>
-                        <div className={cn("p-4 rounded-full", theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100')}>
-                          <HistoryIcon size={32} />
-                        </div>
-                        <p className="text-sm">No calculations yet</p>
-                      </div>
+          <AnimatePresence mode="wait">
+            {showUnitConverter ? (
+              <UnitConverter 
+                key="unit-converter"
+                theme={theme} 
+                onClose={() => setShowUnitConverter(false)} 
+                onCopyResult={(val) => {
+                  audioService.playSuccess();
+                  setDisplay(val);
+                  setShowUnitConverter(false);
+                }}
+              />
+            ) : (
+              <motion.div 
+                key="history-panel"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className={cn("rounded-3xl p-6 h-[600px] flex flex-col shadow-2xl border transition-all duration-500", t.sidebar)}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={cn("text-xl font-semibold flex items-center gap-2 transition-colors duration-500", t.text)}>
+                    {selectedCalculation ? (
+                      <>
+                        <button onClick={() => setSelectedCalculation(null)} className={cn("p-1 rounded-lg transition-colors", theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}>
+                          <ChevronRight className="rotate-180" size={20} />
+                        </button>
+                        Explanation
+                      </>
                     ) : (
-                      history.slice().reverse().map((item) => (
-                        <div 
-                          key={item.id}
-                          className={cn("group p-4 rounded-2xl border transition-all cursor-pointer", t.historyItem)}
-                          onClick={() => handleExplain(item)}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className={cn("text-xs font-mono truncate max-w-[150px]", t.subtext)}>
-                              {item.expression}
-                            </span>
-                            <span className="text-[10px] text-zinc-300">
-                              {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className={cn("text-lg font-medium", t.historyText)}>
-                              {item.result}
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {item.isAiGenerated && <Sparkles size={14} className="text-indigo-400" />}
-                              <Info size={14} className="text-zinc-300" />
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                      <>
+                        <HistoryIcon size={20} className={t.subtext} />
+                        History
+                      </>
                     )}
-                    <div ref={historyEndRef} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
+                  </h2>
+                  {history.length > 0 && !selectedCalculation && (
+                    <button 
+                      onClick={() => {
+                        audioService.playClick();
+                        setHistory([]);
+                        localStorage.removeItem('calc-history');
+                      }}
+                      className={cn("text-xs flex items-center gap-1 transition-colors", theme === 'dark' ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500')}
+                    >
+                      <RotateCcw size={12} />
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  <AnimatePresence mode="wait">
+                    {selectedCalculation ? (
+                      <motion.div 
+                        key="explanation"
+                        initial={{ opacity: 0, rotateY: 90, perspective: 1000 }}
+                        animate={{ opacity: 1, rotateY: 0 }}
+                        exit={{ opacity: 0, rotateY: -90 }}
+                        transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                        className="space-y-4"
+                      >
+                        <div className={cn("p-4 rounded-2xl border transition-colors duration-500", theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-100')}>
+                          <div className={cn("text-xs mb-1", t.subtext)}>Problem</div>
+                          <div className={cn("font-medium", t.text)}>{selectedCalculation.expression}</div>
+                          <div className="text-2xl font-light text-indigo-600 mt-2">= {selectedCalculation.result}</div>
+                        </div>
+                        
+                        <div className={cn("prose prose-sm max-w-none", theme === 'dark' ? 'prose-invert' : 'prose-zinc')}>
+                          <div className={cn("text-xs mb-2 uppercase tracking-wider font-semibold", t.subtext)}>Steps & Explanation</div>
+                          {isAiLoading ? (
+                            <div className={cn("flex items-center gap-2 py-8 justify-center", t.subtext)}>
+                              <Loader2 className="animate-spin" size={18} />
+                              <span>Gemini is thinking...</span>
+                            </div>
+                          ) : (
+                            <div className={cn("leading-relaxed", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}>
+                              <ReactMarkdown>{selectedCalculation.explanation || ''}</ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div 
+                        key="history"
+                        initial={{ opacity: 0, rotateY: -90, perspective: 1000 }}
+                        animate={{ opacity: 1, rotateY: 0 }}
+                        exit={{ opacity: 0, rotateY: 90 }}
+                        transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                        className="space-y-3"
+                      >
+                        {history.length === 0 ? (
+                          <div className={cn("h-full flex flex-col items-center justify-center space-y-2 py-20", t.subtext)}>
+                            <div className={cn("p-4 rounded-full", theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100')}>
+                              <HistoryIcon size={32} />
+                            </div>
+                            <p className="text-sm">No calculations yet</p>
+                          </div>
+                        ) : (
+                          history.slice().reverse().map((item) => (
+                            <div 
+                              key={item.id}
+                              className={cn("group p-4 rounded-2xl border transition-all cursor-pointer", t.historyItem)}
+                              onClick={() => handleExplain(item)}
+                            >
+                              <div className="flex justify-between items-start mb-1">
+                                <span className={cn("text-xs font-mono truncate max-w-[150px]", t.subtext)}>
+                                  {item.expression}
+                                </span>
+                                <span className="text-[10px] text-zinc-300">
+                                  {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className={cn("text-lg font-medium", t.historyText)}>
+                                  {item.result}
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {item.isAiGenerated && <Sparkles size={14} className="text-indigo-400" />}
+                                  <Info size={14} className="text-zinc-300" />
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        <div ref={historyEndRef} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 
@@ -599,7 +633,7 @@ export default function App() {
                       <button
                         key={tName}
                         onClick={() => {
-                          audioService.playClick();
+                          audioService.playAction();
                           setTheme(tName);
                           localStorage.setItem('calc-theme', tName);
                         }}

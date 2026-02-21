@@ -32,6 +32,32 @@ class AudioService {
     this.playTone(800, 'sine', 0.05, 0.1);
   }
 
+  playNumber() {
+    // Crisp, high-pitched click for numbers
+    this.playTone(900, 'sine', 0.04, 0.08);
+  }
+
+  playOperator() {
+    // Slightly lower, more resonant tone for operators
+    this.playTone(550, 'sine', 0.08, 0.1);
+  }
+
+  playAction() {
+    // Mid-range functional sound
+    this.playTone(700, 'sine', 0.06, 0.08);
+  }
+
+  playClear() {
+    // Unique "reset" sound
+    this.playTone(300, 'triangle', 0.15, 0.1);
+  }
+
+  playEquals() {
+    // Finality sound
+    this.playTone(440, 'sine', 0.1, 0.1);
+    setTimeout(() => this.playTone(880, 'sine', 0.15, 0.08), 30);
+  }
+
   playSuccess() {
     // Soft "ding" sound
     this.playTone(600, 'sine', 0.1, 0.1);
