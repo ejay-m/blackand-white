@@ -73,7 +73,7 @@ const CATEGORIES: Category[] = [
 ];
 
 interface UnitConverterProps {
-  theme: 'light' | 'dark' | 'colorful';
+  theme: 'light' | 'dark' | 'colorful' | 'e2';
   onClose: () => void;
   onCopyResult: (value: string) => void;
 }
@@ -123,7 +123,7 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
     setFromValue(toValue === 'Error' ? '1' : toValue);
   };
 
-  const isDark = theme === 'dark';
+  const isDark = theme === 'dark' || theme === 'e2';
 
   return (
     <motion.div
@@ -131,8 +131,8 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       className={cn(
-        "rounded-3xl p-6 shadow-2xl border transition-all duration-500 flex flex-col h-full",
-        isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+        "rounded-[2.5rem] p-8 shadow-2xl border transition-all duration-500 flex flex-col h-full",
+        theme === 'e2' ? "bg-[#0f0f1a]/80 backdrop-blur-2xl border-[#1e1e30]" : (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200")
       )}
     >
       <div className="flex items-center justify-between mb-6">
@@ -164,9 +164,11 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
               "flex flex-col items-center justify-center p-3 rounded-2xl border transition-all gap-1",
               category.id === cat.id
                 ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                : isDark 
-                  ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600" 
-                  : "bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-200"
+                : theme === 'e2'
+                  ? "bg-[#1e1e30]/50 border-[#2a2a40] text-zinc-400 hover:border-zinc-600"
+                  : isDark 
+                    ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600" 
+                    : "bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-200"
             )}
           >
             {cat.icon}
@@ -188,9 +190,11 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
               onChange={(e) => setFromValue(e.target.value)}
               className={cn(
                 "flex-1 text-2xl font-light p-4 rounded-2xl border outline-none transition-all",
-                isDark 
-                  ? "bg-zinc-800 border-zinc-700 text-white focus:ring-2 focus:ring-indigo-500/20" 
-                  : "bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-2 focus:ring-indigo-500/20"
+                theme === 'e2'
+                  ? "bg-[#1e1e30]/50 border-[#2a2a40] text-white focus:ring-2 focus:ring-indigo-500/20"
+                  : isDark 
+                    ? "bg-zinc-800 border-zinc-700 text-white focus:ring-2 focus:ring-indigo-500/20" 
+                    : "bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-2 focus:ring-indigo-500/20"
               )}
             />
             <select
@@ -198,9 +202,11 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
               onChange={(e) => setFromUnit(e.target.value)}
               className={cn(
                 "w-32 p-4 rounded-2xl border outline-none transition-all appearance-none cursor-pointer font-medium",
-                isDark 
-                  ? "bg-zinc-800 border-zinc-700 text-white" 
-                  : "bg-zinc-50 border-zinc-100 text-zinc-900"
+                theme === 'e2'
+                  ? "bg-[#1e1e30]/50 border-[#2a2a40] text-white"
+                  : isDark 
+                    ? "bg-zinc-800 border-zinc-700 text-white" 
+                    : "bg-zinc-50 border-zinc-100 text-zinc-900"
               )}
             >
               {category.units.map(u => (
@@ -219,7 +225,9 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
             }}
             className={cn(
               "p-3 rounded-full border shadow-sm transition-all hover:rotate-180",
-              isDark ? "bg-zinc-800 border-zinc-700 text-indigo-400 hover:bg-zinc-700" : "bg-white border-zinc-200 text-indigo-600 hover:bg-zinc-50"
+              theme === 'e2'
+                ? "bg-[#1e1e30]/50 border-[#2a2a40] text-indigo-400 hover:bg-[#2e2e4a]"
+                : isDark ? "bg-zinc-800 border-zinc-700 text-indigo-400 hover:bg-zinc-700" : "bg-white border-zinc-200 text-indigo-600 hover:bg-zinc-50"
             )}
           >
             <ArrowRightLeft size={20} className="rotate-90" />
@@ -235,9 +243,11 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
             <div
               className={cn(
                 "flex-1 text-2xl font-light p-4 rounded-2xl border transition-all truncate",
-                isDark 
-                  ? "bg-zinc-950 border-zinc-800 text-indigo-400" 
-                  : "bg-zinc-100 border-zinc-200 text-indigo-600"
+                theme === 'e2'
+                  ? "bg-[#050510] border-[#1e1e30] text-indigo-400"
+                  : isDark 
+                    ? "bg-zinc-950 border-zinc-800 text-indigo-400" 
+                    : "bg-zinc-100 border-zinc-200 text-indigo-600"
               )}
             >
               {toValue || '0'}
@@ -247,9 +257,11 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
               onChange={(e) => setToUnit(e.target.value)}
               className={cn(
                 "w-32 p-4 rounded-2xl border outline-none transition-all appearance-none cursor-pointer font-medium",
-                isDark 
-                  ? "bg-zinc-800 border-zinc-700 text-white" 
-                  : "bg-zinc-50 border-zinc-100 text-zinc-900"
+                theme === 'e2'
+                  ? "bg-[#1e1e30]/50 border-[#2a2a40] text-white"
+                  : isDark 
+                    ? "bg-zinc-800 border-zinc-700 text-white" 
+                    : "bg-zinc-50 border-zinc-100 text-zinc-900"
               )}
             >
               {category.units.map(u => (
@@ -260,7 +272,7 @@ export function UnitConverter({ theme, onClose, onCopyResult }: UnitConverterPro
         </div>
       </div>
 
-      <div className={cn("mt-8 p-4 rounded-2xl border text-xs leading-relaxed flex items-center justify-between", isDark ? "bg-zinc-800/50 border-zinc-700 text-zinc-400" : "bg-indigo-50 border-indigo-100 text-indigo-600")}>
+      <div className={cn("mt-8 p-4 rounded-2xl border text-xs leading-relaxed flex items-center justify-between", theme === 'e2' ? "bg-indigo-950/20 border-indigo-500/20 text-indigo-400" : isDark ? "bg-zinc-800/50 border-zinc-700 text-zinc-400" : "bg-indigo-50 border-indigo-100 text-indigo-600")}>
         <div>
           <p className="font-semibold mb-1">Conversion Formula:</p>
           <p className="font-mono">

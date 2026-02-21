@@ -5,19 +5,20 @@ const MATH_SYMBOLS = ['∑', 'π', '∞', '√', '∫', 'Δ', 'θ', 'λ', 'Ω', 
 const MATH_TERMS = ['sin(x)', 'cos(y)', 'log(n)', 'lim', 'exp', 'f(x)', 'dy/dx', 'E=mc²', 'H₂O', 'NaCl', 'F=ma', 'PV=nRT', 'λ=h/p', 'c=λf', 'G=6.67e-11'];
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '01', '10', '110', 'π', 'e', 'φ'];
 
-export const MathBackground = ({ theme }: { theme: 'light' | 'dark' | 'colorful' }) => {
-  const isDark = theme === 'dark';
-  const dotColor = isDark ? '#1e293b' : '#e2e8f0';
-  const symbolColor = isDark ? 'text-zinc-800' : 'text-zinc-200';
-  const accentColor = theme === 'colorful' ? 'text-indigo-200' : (isDark ? 'text-indigo-900/40' : 'text-indigo-100');
+export const MathBackground = ({ theme }: { theme: 'light' | 'dark' | 'colorful' | 'e2' }) => {
+  const isDark = theme === 'dark' || theme === 'e2';
+  const dotColor = theme === 'e2' ? '#1e1e30' : (isDark ? '#1e293b' : '#e2e8f0');
+  const symbolColor = theme === 'e2' ? 'text-indigo-900/40' : (isDark ? 'text-zinc-800' : 'text-zinc-200');
+  const accentColor = theme === 'e2' ? 'text-purple-900/30' : (theme === 'colorful' ? 'text-indigo-200' : (isDark ? 'text-indigo-900/40' : 'text-indigo-100'));
 
   return (
     <div className={cn("fixed inset-0 -z-10 overflow-hidden pointer-events-none select-none transition-all duration-1000", 
-      isDark ? 'bg-zinc-950' : (theme === 'colorful' ? 'bg-indigo-50' : 'bg-white')
+      theme === 'e2' ? 'bg-[#050510]' : (isDark ? 'bg-zinc-950' : (theme === 'colorful' ? 'bg-indigo-50' : 'bg-white'))
     )}>
       {/* Dynamic Background Gradient */}
       <div className={cn(
         "absolute inset-0 transition-opacity duration-1000",
+        theme === 'e2' ? "opacity-30 bg-[radial-gradient(circle_at_20%_30%,#1e1b4b_0%,transparent_50%),radial-gradient(circle_at_80%_70%,#312e81_0%,transparent_50%)]" :
         isDark ? "opacity-20 bg-[radial-gradient(circle_at_20%_30%,#1e1b4b_0%,transparent_50%),radial-gradient(circle_at_80%_70%,#312e81_0%,transparent_50%)]" 
                : "opacity-40 bg-[radial-gradient(circle_at_20%_30%,#e0e7ff_0%,transparent_50%),radial-gradient(circle_at_80%_70%,#f5f3ff_0%,transparent_50%)]"
       )} />

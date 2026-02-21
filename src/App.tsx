@@ -3,10 +3,11 @@ import {
   Plus, Minus, X, Divide, Delete, RotateCcw, 
   Sparkles, History as HistoryIcon, Info, 
   ChevronRight, Send, Loader2, X as CloseIcon,
-  Undo, Redo, Settings, Camera, ArrowRightLeft
+  Undo, Redo, Settings, Camera, ArrowRightLeft,
+  Folder, Calculator, Cpu, Layout, Moon, Sun, Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { evaluate } from 'mathjs';
+import { evaluate, format } from 'mathjs';
 import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,9 +17,21 @@ import { audioService } from './utils/audio';
 import { MathBackground } from './components/MathBackground';
 import { UnitConverter } from './components/UnitConverter';
 
-type Theme = 'light' | 'dark' | 'colorful';
+type Theme = 'light' | 'dark' | 'colorful' | 'e2';
 
 const THEMES = {
+  e2: {
+    bg: 'bg-[#050510]',
+    panel: 'bg-[#0f0f1a]/80 backdrop-blur-2xl border-[#1e1e30]',
+    display: 'bg-gradient-to-br from-[#00d2ff] to-[#3a7bd5] text-white shadow-[0_0_30px_rgba(0,210,255,0.3)]',
+    button: 'bg-[#1e1e30]/50 text-zinc-300 hover:bg-[#2e2e4a]/60 border-[#2a2a40]',
+    opButton: 'bg-[#1e1e30]/80 text-indigo-400 hover:bg-[#2e2e4a]',
+    sidebar: 'bg-[#0f0f1a]/80 backdrop-blur-2xl border-[#1e1e30]',
+    text: 'text-white',
+    subtext: 'text-zinc-500',
+    historyItem: 'bg-[#161625] border-[#25253a] hover:border-indigo-500/50',
+    historyText: 'text-zinc-200'
+  },
   light: {
     bg: 'bg-zinc-50',
     panel: 'bg-white/80 border-zinc-200/50',
@@ -72,12 +85,19 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showUnitConverter, setShowUnitConverter] = useState(false);
-  const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'light');
+  const [theme, setTheme] = useState<Theme>((localStorage.getItem('calc-theme') as Theme) || 'e2');
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
   const [isImageAnalyzing, setIsImageAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCalculation, setSelectedCalculation] = useState<CalculationHistory | null>(null);
   const historyEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSaveSettings = () => {
+    audioService.playSuccess();
+    localStorage.setItem('gemini-api-key', apiKey);
+    setShowSettings(false);
+    window.location.reload();
+  };
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('calc-history');
@@ -151,7 +171,13 @@ export default function App() {
 
   const handleCalculate = () => {
     try {
-      const result = evaluate(display).toString();
+      const rawResult = evaluate(display);
+      const result = format(rawResult, { 
+        precision: 14, 
+        upperExp: 10, 
+        lowerExp: -7 
+      }).toString();
+
       if (result === display) {
         audioService.playEquals();
         return;
@@ -276,187 +302,199 @@ export default function App() {
   const t = THEMES[theme];
 
   return (
-    <div className={cn("min-h-screen flex items-center justify-center p-4 sm:p-8 relative transition-colors duration-500", t.bg)}>
+    <div className={cn("min-h-screen flex items-center justify-center p-4 sm:p-8 relative transition-colors duration-500 overflow-hidden", t.bg)}>
       <MathBackground theme={theme} />
       
+      {/* E2 Glows */}
+      {theme === 'e2' && (
+        <>
+          <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
+        </>
+      )}
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start z-10"
+        className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch z-10"
       >
         
         {/* Main Calculator */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-8 flex flex-col gap-6">
           <motion.div 
-            whileHover={{ scale: 1.01 }}
-            className={cn("rounded-3xl overflow-hidden shadow-2xl border transition-all duration-500", t.panel)}
+            className={cn("flex-1 rounded-[2.5rem] p-8 flex flex-col shadow-2xl border transition-all duration-500", t.panel)}
           >
-            {/* Display */}
-            <div className={cn("p-8 text-right space-y-2 relative overflow-hidden transition-colors duration-500", t.display)}>
-              {/* Decorative background for display */}
-              <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
-                <div className="absolute top-2 left-2 text-[10px] font-mono">CALC_V1.0</div>
-                <div className="absolute bottom-2 left-2 text-[10px] font-mono">RAD</div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative overflow-hidden">
+                  <Calculator className="text-white/40 absolute -bottom-1 -right-1" size={24} />
+                  <Cpu className="text-white relative z-10" size={20} />
+                </div>
+                <div>
+                  <h1 className={cn("text-xl font-bold tracking-tight", t.text)}>E2 AI <span className="text-indigo-500">Calculator</span></h1>
+                </div>
               </div>
               
-              <div className="text-zinc-400 text-sm font-mono h-6 overflow-hidden text-ellipsis">
+              <div className="flex items-center gap-2">
+                <button className={cn("px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all", t.button)}>
+                  <Layout size={14} />
+                  Scientific
+                </button>
+                <button onClick={handleUndo} disabled={undoStack.length === 0} className={cn("p-2 rounded-xl transition-all disabled:opacity-30", t.button)}>
+                  <Undo size={18} />
+                </button>
+                <button onClick={handleRedo} disabled={redoStack.length === 0} className={cn("p-2 rounded-xl transition-all disabled:opacity-30", t.button)}>
+                  <Redo size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Display */}
+            <div className={cn("rounded-3xl p-10 text-right space-y-2 relative overflow-hidden transition-all duration-500 mb-8", t.display)}>
+              <div className="absolute top-4 left-6 flex gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-white/20" />
+                <div className="w-2 h-2 rounded-full bg-white/20" />
+                <div className="w-2 h-2 rounded-full bg-white/20" />
+              </div>
+              
+              <div className="text-white/60 text-lg font-medium h-8 overflow-hidden text-ellipsis">
                 {display !== '0' && display}
               </div>
               <motion.div 
                 key={display}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-5xl font-light tracking-tight truncate"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-7xl font-bold tracking-tighter"
               >
                 {display}
               </motion.div>
             </div>
 
+            {/* AI Input Field */}
+            <AnimatePresence>
+              {showAiInput && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                  animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+                  exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Type a word problem..."
+                      className={cn(
+                        "flex-1 border rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all",
+                        theme === 'e2' ? "bg-[#1a1a2e] border-[#2a2a4a] text-white" : "bg-zinc-50 border-zinc-200"
+                      )}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAiSolve()}
+                    />
+                    <button 
+                      onClick={() => handleAiSolve()}
+                      disabled={isAiLoading}
+                      className="bg-indigo-600 text-white px-6 rounded-2xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    >
+                      {isAiLoading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Keypad */}
-            <div className={cn("p-6 transition-colors duration-500", theme === 'dark' ? 'bg-zinc-900' : 'bg-white')}>
-              <div className="calculator-grid">
-                <CalcButton theme={theme} onClick={handleClear} className={t.opButton}>AC</CalcButton>
-                <CalcButton theme={theme} onClick={handleBackspace} className={t.opButton}><Delete size={20} /></CalcButton>
-                <CalcButton theme={theme} onClick={() => handleOperator('/')} className={t.opButton}><Divide size={20} /></CalcButton>
-                <CalcButton theme={theme} onClick={() => handleOperator('*')} className={t.opButton}><X size={20} /></CalcButton>
+            <div className="grid grid-cols-5 gap-3 mb-8">
+              {/* Row 1 */}
+              <CalcButton theme={theme} onClick={() => handleOperator('sin(')} className="text-xs font-bold">sin</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('cos(')} className="text-xs font-bold">cos</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('tan(')} className="text-xs font-bold">tan</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('log(')} className="text-xs font-bold">log</CalcButton>
+              <CalcButton theme={theme} onClick={handleClear} className="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20 text-xs font-bold">AC</CalcButton>
 
-                <CalcButton theme={theme} onClick={() => handleNumber('7')}>7</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleNumber('8')}>8</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleNumber('9')}>9</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleOperator('-')} className={t.opButton}><Minus size={20} /></CalcButton>
+              {/* Row 2 */}
+              <CalcButton theme={theme} onClick={() => handleNumber('7')}>7</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleNumber('8')}>8</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleNumber('9')}>9</CalcButton>
+              <CalcButton theme={theme} onClick={handleBackspace} className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20"><Delete size={20} /></CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('*')} className={t.opButton}><X size={20} /></CalcButton>
 
-                <CalcButton theme={theme} onClick={() => handleNumber('4')}>4</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleNumber('5')}>5</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleNumber('6')}>6</CalcButton>
-                <CalcButton theme={theme} onClick={() => handleOperator('+')} className={t.opButton}><Plus size={20} /></CalcButton>
+              {/* Row 3 */}
+              <CalcButton theme={theme} onClick={() => handleNumber('4')}>4</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleNumber('5')}>5</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleNumber('6')}>6</CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('-')} className={t.opButton}><Minus size={20} /></CalcButton>
+              <CalcButton theme={theme} onClick={() => handleOperator('+')} className={t.opButton}><Plus size={20} /></CalcButton>
 
+              {/* Row 4 & 5 */}
+              <div className="col-span-4 grid grid-cols-4 gap-3">
                 <CalcButton theme={theme} onClick={() => handleNumber('1')}>1</CalcButton>
                 <CalcButton theme={theme} onClick={() => handleNumber('2')}>2</CalcButton>
                 <CalcButton theme={theme} onClick={() => handleNumber('3')}>3</CalcButton>
-                <CalcButton 
-                  theme={theme}
-                  onClick={handleCalculate} 
-                  className={cn("row-span-2 text-white hover:opacity-90", theme === 'colorful' ? 'bg-indigo-600' : 'bg-zinc-900')}
-                >
-                  =
-                </CalcButton>
-
-                <CalcButton theme={theme} onClick={() => handleNumber('0')} className="col-span-2">0</CalcButton>
+                <CalcButton theme={theme} onClick={() => handleOperator('%')}>%</CalcButton>
+                
+                <CalcButton theme={theme} onClick={() => handleNumber('0')}>0</CalcButton>
                 <CalcButton theme={theme} onClick={() => handleNumber('.')}>.</CalcButton>
-              </div>
-
-              {/* AI Actions */}
-              <div className={cn("mt-6 pt-6 border-t flex gap-3", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100')}>
-                <motion.button 
-                  whileHover={{ scale: 1.02, boxShadow: '0 0 15px rgba(79, 70, 229, 0.2)' }}
-                  whileTap={{ scale: 0.98 }}
+                <CalcButton theme={theme} onClick={() => handleOperator('pi')}>π</CalcButton>
+                <CalcButton 
+                  theme={theme} 
                   onClick={() => setShowAiInput(!showAiInput)}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-colors relative overflow-hidden group",
-                    theme === 'dark' ? 'bg-indigo-900/30 text-indigo-300 hover:bg-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                  )}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-none shadow-lg shadow-purple-500/20"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                  <Sparkles size={18} />
-                  <span>AI Solve</span>
-                </motion.button>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={handleUndo}
-                    disabled={undoStack.length === 0}
-                    className={cn("p-3 rounded-xl transition-colors disabled:opacity-30", t.opButton)}
-                    title="Undo"
-                  >
-                    <Undo size={20} />
-                  </button>
-                  <button 
-                    onClick={handleRedo}
-                    disabled={redoStack.length === 0}
-                    className={cn("p-3 rounded-xl transition-colors disabled:opacity-30", t.opButton)}
-                    title="Redo"
-                  >
-                    <Redo size={20} />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      audioService.playAction();
-                      setShowUnitConverter(!showUnitConverter);
-                    }}
-                    className={cn("p-3 rounded-xl transition-colors", showUnitConverter ? "bg-indigo-600 text-white" : t.opButton)}
-                    title="Unit Converter"
-                  >
-                    <ArrowRightLeft size={20} />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      audioService.playAction();
-                      setShowSettings(true);
-                    }}
-                    className={cn("p-3 rounded-xl transition-colors", t.opButton)}
-                    title="Settings"
-                  >
-                    <Settings size={20} />
-                  </button>
-                </div>
-                <button 
-                  onClick={() => setShowHistory(!showHistory)}
-                  className={cn("p-3 rounded-xl transition-colors", t.opButton)}
-                  title="History"
-                >
-                  <HistoryIcon size={20} />
-                </button>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn("p-3 rounded-xl transition-colors", t.opButton)}
-                  title="Analyze Image"
-                  disabled={isImageAnalyzing}
-                >
-                  {isImageAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
+                  <Sparkles size={20} />
+                </CalcButton>
               </div>
+              
+              <CalcButton 
+                theme={theme}
+                onClick={handleCalculate} 
+                className="row-span-2 h-full bg-indigo-500 text-white border-none shadow-lg shadow-indigo-500/40 text-4xl font-light"
+              >
+                =
+              </CalcButton>
+            </div>
 
-              {/* AI Input Field */}
-              <AnimatePresence>
-                {showAiInput && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-4 flex gap-2">
-                      <input 
-                        type="text"
-                        value={aiPrompt}
-                        onChange={(e) => setAiPrompt(e.target.value)}
-                        placeholder="Type a word problem..."
-                        className="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAiSolve()}
-                      />
-                      <button 
-                        onClick={() => handleAiSolve()}
-                        disabled={isAiLoading}
-                        className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        {isAiLoading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* AI Solve Button */}
+            <motion.button 
+              whileHover={{ scale: 1.01, boxShadow: '0 0 30px rgba(79, 70, 229, 0.3)' }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 py-5 rounded-3xl flex items-center justify-center gap-4 text-white font-bold tracking-widest uppercase shadow-xl"
+            >
+              <div className="flex items-center gap-2">
+                <Cpu size={24} />
+                <div className="w-px h-6 bg-white/20" />
+                <Sparkles size={20} />
+              </div>
+              <span>AI Solve & Analyze</span>
+            </motion.button>
+
+            {/* Floating Toolbar */}
+            <div className="mt-8 flex justify-center">
+              <div className={cn("flex items-center gap-1 p-2 rounded-2xl border shadow-xl", t.panel)}>
+                <button onClick={() => setShowSettings(true)} className={cn("p-3 rounded-xl transition-all", t.button)}><Settings size={20} /></button>
+                <button onClick={() => fileInputRef.current?.click()} className={cn("p-3 rounded-xl transition-all", t.button)}><Camera size={20} /></button>
+                <button onClick={() => setShowHistory(!showHistory)} className={cn("p-3 rounded-xl transition-all", showHistory ? "bg-indigo-600 text-white" : t.button)}><Folder size={20} /></button>
+                <div className="w-px h-6 bg-zinc-800 mx-2" />
+                <button 
+                  onClick={() => {
+                    const themes: Theme[] = ['e2', 'dark', 'light', 'colorful'];
+                    const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+                    setTheme(next);
+                    localStorage.setItem('calc-theme', next);
+                  }}
+                  className={cn("p-3 rounded-xl transition-all", t.button)}
+                >
+                  {theme === 'e2' ? <Palette size={20} /> : theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
 
         {/* Sidebar: History & Explanations / Unit Converter */}
-        <div className="lg:col-span-5 space-y-6 h-full">
+        <div className="lg:col-span-4 space-y-6 h-full">
           <AnimatePresence mode="wait">
             {showUnitConverter ? (
               <UnitConverter 
@@ -519,21 +557,21 @@ export default function App() {
                         transition={{ type: "spring", damping: 20, stiffness: 100 }}
                         className="space-y-4"
                       >
-                        <div className={cn("p-4 rounded-2xl border transition-colors duration-500", theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-100')}>
-                          <div className={cn("text-xs mb-1", t.subtext)}>Problem</div>
-                          <div className={cn("font-medium", t.text)}>{selectedCalculation.expression}</div>
-                          <div className="text-2xl font-light text-indigo-600 mt-2">= {selectedCalculation.result}</div>
+                        <div className={cn("p-6 rounded-3xl border transition-colors duration-500", theme === 'e2' ? 'bg-[#1a1a2e] border-[#2a2a4a]' : theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-100')}>
+                          <div className={cn("text-xs mb-1 uppercase tracking-widest font-bold", t.subtext)}>Problem</div>
+                          <div className={cn("font-medium text-lg", t.text)}>{selectedCalculation.expression}</div>
+                          <div className="text-3xl font-bold text-indigo-400 mt-2">= {selectedCalculation.result}</div>
                         </div>
                         
-                        <div className={cn("prose prose-sm max-w-none", theme === 'dark' ? 'prose-invert' : 'prose-zinc')}>
-                          <div className={cn("text-xs mb-2 uppercase tracking-wider font-semibold", t.subtext)}>Steps & Explanation</div>
+                        <div className={cn("prose prose-sm max-w-none", theme === 'dark' || theme === 'e2' ? 'prose-invert' : 'prose-zinc')}>
+                          <div className={cn("text-xs mb-2 uppercase tracking-wider font-bold", t.subtext)}>Steps & Explanation</div>
                           {isAiLoading ? (
                             <div className={cn("flex items-center gap-2 py-8 justify-center", t.subtext)}>
                               <Loader2 className="animate-spin" size={18} />
                               <span>Gemini is thinking...</span>
                             </div>
                           ) : (
-                            <div className={cn("leading-relaxed", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}>
+                            <div className={cn("leading-relaxed", theme === 'dark' || theme === 'e2' ? 'text-zinc-300' : 'text-zinc-600')}>
                               <ReactMarkdown>{selectedCalculation.explanation || ''}</ReactMarkdown>
                             </div>
                           )}
@@ -546,38 +584,33 @@ export default function App() {
                         animate={{ opacity: 1, rotateY: 0 }}
                         exit={{ opacity: 0, rotateY: 90 }}
                         transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                        className="space-y-3"
+                        className="space-y-4"
                       >
                         {history.length === 0 ? (
                           <div className={cn("h-full flex flex-col items-center justify-center space-y-2 py-20", t.subtext)}>
-                            <div className={cn("p-4 rounded-full", theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100')}>
-                              <HistoryIcon size={32} />
+                            <div className={cn("p-6 rounded-full", theme === 'dark' || theme === 'e2' ? 'bg-[#1a1a2e]' : 'bg-zinc-100')}>
+                              <HistoryIcon size={48} />
                             </div>
-                            <p className="text-sm">No calculations yet</p>
+                            <p className="text-sm font-medium">No calculations yet</p>
                           </div>
                         ) : (
                           history.slice().reverse().map((item) => (
                             <div 
                               key={item.id}
-                              className={cn("group p-4 rounded-2xl border transition-all cursor-pointer", t.historyItem)}
+                              className={cn("group p-5 rounded-3xl border transition-all cursor-pointer", t.historyItem)}
                               onClick={() => handleExplain(item)}
                             >
-                              <div className="flex justify-between items-start mb-1">
-                                <span className={cn("text-xs font-mono truncate max-w-[150px]", t.subtext)}>
-                                  {item.expression}
-                                </span>
-                                <span className="text-[10px] text-zinc-300">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className={cn("text-[10px] font-bold uppercase tracking-widest", t.subtext)}>
                                   {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
+                                {item.isAiGenerated && <Sparkles size={14} className="text-indigo-400" />}
                               </div>
-                              <div className="flex items-center justify-between">
-                                <div className={cn("text-lg font-medium", t.historyText)}>
-                                  {item.result}
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {item.isAiGenerated && <Sparkles size={14} className="text-indigo-400" />}
-                                  <Info size={14} className="text-zinc-300" />
-                                </div>
+                              <div className={cn("text-sm font-mono mb-2 truncate", t.subtext)}>
+                                {item.expression}
+                              </div>
+                              <div className={cn("text-xl font-bold", t.historyText)}>
+                                {item.result}
                               </div>
                             </div>
                           ))
@@ -587,6 +620,19 @@ export default function App() {
                     )}
                   </AnimatePresence>
                 </div>
+
+                {/* AI Tip Section */}
+                {!selectedCalculation && (
+                  <div className={cn("mt-6 p-6 rounded-3xl border", theme === 'e2' ? 'bg-indigo-950/20 border-indigo-500/20' : 'bg-zinc-50 border-zinc-100')}>
+                    <div className="flex items-center gap-2 mb-2 text-indigo-400">
+                      <Info size={16} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">AI Tip</span>
+                    </div>
+                    <p className={cn("text-xs leading-relaxed", t.subtext)}>
+                      Try taking a photo of your physics homework. I can solve multi-step problems instantly!
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -628,8 +674,8 @@ export default function App() {
                   <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">
                     UI Theme
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['light', 'dark', 'colorful'] as const).map((tName) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['e2', 'dark', 'light', 'colorful'] as const).map((tName) => (
                       <button
                         key={tName}
                         onClick={() => {
@@ -640,7 +686,7 @@ export default function App() {
                         className={cn(
                           "py-2 px-3 rounded-xl text-xs font-bold capitalize border transition-all",
                           theme === tName 
-                            ? "bg-zinc-900 text-white border-zinc-900" 
+                            ? "bg-indigo-600 text-white border-indigo-600" 
                             : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:border-zinc-300"
                         )}
                       >
@@ -664,13 +710,8 @@ export default function App() {
                 </div>
                 <div className="flex gap-4 pt-4">
                   <button 
-                    onClick={() => { 
-                      audioService.playSuccess();
-                      localStorage.setItem('gemini-api-key', apiKey); 
-                      setShowSettings(false);
-                      window.location.reload(); // Reload to re-init service
-                    }} 
-                    className="flex-1 bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-colors"
+                    onClick={handleSaveSettings} 
+                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
                   >
                     Save Changes
                   </button>
@@ -702,8 +743,8 @@ function CalcButton({ children, onClick, className, disabled, theme }: {
   const t = THEMES[theme];
   return (
     <motion.button
-      whileHover={{ scale: 1.05, y: -2 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: 1.02, y: -1 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       disabled={disabled}
       className={cn(

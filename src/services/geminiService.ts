@@ -58,7 +58,7 @@ export class GeminiService {
     try {
       const ai = this.getAI();
       const response = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3.1-pro-preview",
         contents: [
           {
             inlineData: {
